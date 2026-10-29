@@ -283,3 +283,101 @@ class Cafeteria:
 
     def __repr__(self):
         return f"Cafeteria({len(self.carte)} produits, {len(self.clients)} clients, {len(self.journal)} commandes)"    
+
+def creer_cafeteria():
+    """Crée la cafétéria avec la carte et les clients du début de journée."""
+    cafet = Cafeteria()
+
+    produits = [
+        ("B01", "Café expresso", "boisson chaude", 1.20, 100),
+        ("B02", "Thé", "boisson chaude", 1.30, 60),
+        ("B03", "Chocolat chaud", "boisson chaude", 1.60, 40),
+        ("B04", "Jus d'orange", "boisson froide", 2.00, 24),
+        ("B05", "Eau 50 cl", "boisson froide", 1.00, 40),
+        ("V01", "Croissant", "viennoiserie", 1.20, 30),
+        ("P01", "Sandwich jambon-beurre", "plat", 4.00, 15),
+        ("P02", "Wrap végétarien", "plat", 4.60, 10),
+        ("P03", "Plat du jour", "plat", 7.20, 20),
+        ("D01", "Cookie", "dessert", 1.40, 25),
+        ("D02", "Fruit de saison", "dessert", 0.80, 30),
+    ]
+    for code, nom, categorie, prix, stock in produits:
+        cafet.ajouter_produit(Produit(code, nom, categorie, prix, stock))
+
+    cafet.ajouter_client(Client("Alice", "étudiant", 12.00))
+    cafet.ajouter_client(Client("Bruno", "alternant", 3.50))
+    cafet.ajouter_client(Client("Chloé", "étudiant", 25.00))
+    cafet.ajouter_client(Client("Farid", "personnel", 0.00))
+    return cafet
+
+
+def afficher_commande(cafet, numero, heure, nom, resultat):
+    """Affiche le résultat d'une commande, et son ticket si elle est acceptée."""
+    acceptee, motif, montant = resultat
+    if acceptee:
+        print(f"{numero:>2}. {heure}  Commande {nom} : acceptée ({montant:.2f} €)")
+        print(cafet.journal[-1])
+    else:
+        print(f"{numero:>2}. {heure}  Commande {nom} : REFUSÉE ({motif})")
+
+
+def jouer_scenario(cafet):
+    """Rejoue les 17 événements de la journée (section 6 de l'énoncé)."""
+    alice = cafet.clients["Alice"]
+    bruno = cafet.clients["Bruno"]
+    chloe = cafet.clients["Chloé"]
+    farid = cafet.clients["Farid"]
+
+    print(" 1. 07:30  Ouverture")
+
+    r = cafet.traiter_commande(alice, "07:45", [("B01", 1), ("V01", 1)])
+    afficher_commande(cafet, 2, "07:45", "Alice", r)
+
+    r = cafet.traiter_commande(farid, "08:10", [("B01", 2)])
+    afficher_commande(cafet, 3, "08:10", "Farid", r)
+
+    r = cafet.traiter_commande(bruno, "08:30", [("B03", 1), ("V01", 3)])
+    afficher_commande(cafet, 4, "08:30", "Bruno", r)
+
+    ok = cafet.recharger(bruno, 20.00)
+    print(f" 5. 08:35  Recharge Bruno 20.00 € : {'acceptée' if ok else 'REFUSÉE'} (solde {bruno.solde:.2f} €)")
+
+    r = cafet.traiter_commande(bruno, "08:40", [("B03", 1), ("V01", 3)])
+    afficher_commande(cafet, 6, "08:40", "Bruno", r)
+
+    r = cafet.traiter_commande(Client("visiteur", "visiteur"), "09:15", [("B02", 1), ("D01", 1)])
+    afficher_commande(cafet, 7, "09:15", "visiteur", r)
+
+    r = cafet.traiter_commande(chloe, "11:00", [("P03", 1)])
+    afficher_commande(cafet, 8, "11:00", "Chloé", r)
+
+    r = cafet.traiter_commande(chloe, "12:05", [("P03", 1), ("B04", 1), ("D01", 1)])
+    afficher_commande(cafet, 9, "12:05", "Chloé", r)
+
+    ok = cafet.recharger(alice, 150.00)
+    print(f"10. 12:10  Recharge Alice 150.00 € : {'acceptée' if ok else 'REFUSÉE'} (solde {alice.solde:.2f} €)")
+
+    r = cafet.traiter_commande(alice, "12:20", [("P02", 1), ("B05", 1), ("D02", 1), ("B01", 1)])
+    afficher_commande(cafet, 11, "12:20", "Alice", r)
+
+    r = cafet.traiter_commande(Client("visiteur", "visiteur"), "12:45", [("P01", 16)])
+    afficher_commande(cafet, 12, "12:45", "visiteur", r)
+
+    r = cafet.traiter_commande(bruno, "13:00", [("P01", 1), ("SMOOTHIE", 1)])   # absent de la carte
+    afficher_commande(cafet, 13, "13:00", "Bruno", r)
+
+    r = cafet.traiter_commande(alice, "15:30", [("B01", 1), ("D01", 1)])
+    afficher_commande(cafet, 14, "15:30", "Alice", r)
+
+    ok = cafet.reapprovisionner("P01", 10)
+    print(f"15. 16:00  Réapprovisionnement Sandwich +10 : {'fait' if ok else 'REFUSÉ'} (stock {cafet.carte['P01'].stock})")
+
+    r = cafet.traiter_commande(farid, "17:30", [("B02", 2)])
+    afficher_commande(cafet, 16, "17:30", "Farid", r)
+
+    print("17. 18:30  Clôture : rapport à venir (étape suivante)")
+
+
+if __name__ == "__main__":
+    cafet = creer_cafeteria()
+    jouer_scenario(cafet)    
