@@ -1,4 +1,4 @@
-from campuscafe import Produit, Client, Commande
+from campuscafe import Produit, Client, Commande, Cafeteria
 
 cafe = Produit("B01", "Café expresso", "boisson chaude", 1.20, 100)
 plat = Produit("P03", "Plat du jour", "plat", 7.20, 20)
@@ -110,3 +110,62 @@ assert len(c3) == 1                                # la commande n'a pas bougé
 
 print(c)                                           # pour voir le ticket
 print("Tests Commande : OK ✅")
+
+
+# ---------- Tests Cafeteria ----------
+cafet = Cafeteria()
+cafet.ajouter_produit(Produit("B01", "Café expresso", "boisson chaude", 1.20, 100))
+cafet.ajouter_produit(Produit("B03", "Chocolat chaud", "boisson chaude", 1.60, 40))
+cafet.ajouter_produit(Produit("B05", "Eau 50 cl", "boisson froide", 1.00, 40))
+cafet.ajouter_produit(Produit("V01", "Croissant", "viennoiserie", 1.20, 30))
+cafet.ajouter_produit(Produit("P02", "Wrap végétarien", "plat", 4.60, 10))
+cafet.ajouter_produit(Produit("P03", "Plat du jour", "plat", 7.20, 20))
+cafet.ajouter_produit(Produit("D02", "Fruit de saison", "dessert", 0.80, 30))
+
+alice = Client("Alice", "étudiant", 12.00)
+bruno = Client("Bruno", "alternant", 3.50)
+chloe = Client("Chloé", "étudiant", 25.00)
+visiteur = Client("visiteur", "visiteur")
+
+# Événement 2 (calcul à la main : 2,16 €, solde 9,84 €)
+assert cafet.traiter_commande(alice, "07:45", [("B01", 1), ("V01", 1)]) == (True, "", 2.16)
+assert alice.solde == 9.84 and alice.total_achats == 2.16
+assert cafet.carte["V01"].stock == 29
+
+# Événement 4 : solde insuffisant -> tout ou rien
+assert cafet.traiter_commande(bruno, "08:30", [("B03", 1), ("V01", 3)]) == (False, "solde insuffisant", 0.0)
+assert bruno.solde == 3.50                       # solde inchangé
+assert cafet.carte["V01"].stock == 29            # stock inchangé
+assert len(cafet.journal) == 1                   # journal inchangé
+
+# Événements 5 et 6 (calcul à la main : 4,94 €, solde 18,56 €)
+assert cafet.recharger(bruno, 20) is True and bruno.solde == 23.50
+assert cafet.traiter_commande(bruno, "08:40", [("B03", 1), ("V01", 3)]) == (True, "", 4.94)
+assert bruno.solde == 18.56 and cafet.carte["V01"].stock == 26
+
+# Événement 8 : plat du jour à 11:00 -> hors créneau
+assert cafet.traiter_commande(chloe, "11:00", [("P03", 1)]) == (False, "hors créneau", 0.0)
+
+# Événement 10 : recharge de 150 € refusée
+assert cafet.recharger(alice, 150) is False and alice.solde == 9.84
+
+# Événement 11 (calcul à la main : 6,84 €, solde 3,00 €)
+assert cafet.traiter_commande(alice, "12:20", [("P02", 1), ("B05", 1), ("D02", 1), ("B01", 1)]) == (True, "", 6.84)
+assert alice.solde == 3.00 and alice.total_achats == 9.00
+
+# Produit inconnu (événement 13 : Smoothie mangue) et quantité invalide
+assert cafet.traiter_commande(bruno, "13:00", [("P01", 1), ("SM01", 1)])[1] == "produit inconnu"
+assert cafet.traiter_commande(bruno, "13:00", [("B01", 0)])[1] == "quantité invalide"
+
+# Visiteur : +0,50 € de frais (A1)
+assert cafet.traiter_commande(visiteur, "09:15", [("B01", 1)]) == (True, "", 1.70)
+
+# Comptage des refus
+assert cafet.refus["solde insuffisant"] == 1
+assert cafet.refus["hors créneau"] == 1
+assert cafet.refus["produit inconnu"] == 1
+assert cafet.refus["quantité invalide"] == 1
+assert len(cafet.journal) == 4
+
+print(cafet.journal[-1])          # le ticket du visiteur
+print("Tests Cafeteria : OK ✅")
