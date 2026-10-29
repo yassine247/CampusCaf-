@@ -48,3 +48,71 @@ class Produit:
 
     def __lt__(self, autre):
         return self.prix < autre.prix
+
+class Client:
+    """Un client de la cafétéria : nom, profil, solde du badge et fidélité."""
+
+    # Attributs de CLASSE : les règles de l'énoncé, communes à tous les clients
+    RECHARGE_MIN = 5.00
+    RECHARGE_MAX = 100.00
+    SOLDE_MAX = 150.00
+    DECOUVERT_PERSONNEL = -10.00
+    SEUIL_FIDELITE = 40.00      # variante B3
+    TAUX_FIDELITE = 0.05        # variante B3 : -5 %
+
+    def __init__(self, nom, profil, solde=0.0):
+        self.nom = nom
+        self.profil = profil
+        self.solde = solde
+        self.total_achats = 0.0     # état de fidélité (B3)
+
+    def a_un_badge(self):
+        """Renvoie True si le client a un badge (tous les profils sauf visiteur)."""
+        return self.profil != "visiteur"
+
+    def recharger(self, montant):
+        """Ajoute le montant au solde. Renvoie False si la recharge n'est pas conforme."""
+        if not self.a_un_badge():
+            return False
+        if montant < self.RECHARGE_MIN or montant > self.RECHARGE_MAX:
+            return False
+        if round(self.solde + montant, 2) > self.SOLDE_MAX:
+            return False
+        self.solde = round(self.solde + montant, 2)
+        return True
+
+    def peut_payer(self, montant):
+        """Renvoie True si le client peut payer ce montant selon son profil."""
+        if not self.a_un_badge():
+            return True                     # le visiteur paie comptant
+        reste = round(self.solde - montant, 2)
+        if self.profil == "personnel":
+            return reste >= self.DECOUVERT_PERSONNEL
+        return reste >= 0
+
+    def debiter(self, montant):
+        """Retire le montant du solde si possible. Renvoie True si le paiement a eu lieu."""
+        if not self.peut_payer(montant):
+            return False
+        if self.a_un_badge():
+            self.solde = round(self.solde - montant, 2)
+        return True
+
+    def avantage_fidelite(self, montant):
+        """Renvoie la réduction fidélité (B3) sur ce montant, 0.0 si aucune."""
+        if self.a_un_badge() and self.total_achats >= self.SEUIL_FIDELITE:
+            return round(montant * self.TAUX_FIDELITE, 2)
+        return 0.0
+
+    def enregistrer_achat(self, montant):
+        """Ajoute le montant payé au total des achats (fidélité B3)."""
+        if self.a_un_badge():
+            self.total_achats = round(self.total_achats + montant, 2)
+
+    def __str__(self):
+        if not self.a_un_badge():
+            return f"{self.nom} (visiteur)"
+        return f"{self.nom} ({self.profil}) : solde {self.solde:.2f} €, achats {self.total_achats:.2f} €"
+
+    def __repr__(self):
+        return f"Client({self.nom!r}, {self.profil!r}, {self.solde!r})"
