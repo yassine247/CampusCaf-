@@ -116,3 +116,74 @@ class Client:
 
     def __repr__(self):
         return f"Client({self.nom!r}, {self.profil!r}, {self.solde!r})"
+
+
+
+class Commande:
+    """Une commande : un client, une heure et des lignes [produit, quantite]."""
+
+    compteur = 0        # attribut de CLASSE : sert à numéroter les commandes
+
+    def __init__(self, client, heure, lignes=None):
+        Commande.compteur += 1              # on écrit sur la CLASSE
+        self.numero = Commande.compteur
+        self.client = client
+        self.heure = heure
+        self.lignes = []
+        if lignes is not None:
+            for produit, quantite in lignes:    # on COPIE les lignes reçues
+                self.ajouter_ligne(produit, quantite)
+        # Remplis par la Cafeteria au moment du traitement
+        self.remise = 0.0
+        self.avantage = 0.0
+        self.montant_paye = 0.0
+
+    def ajouter_ligne(self, produit, quantite):
+        """Ajoute une ligne ; si le produit est déjà présent, cumule la quantité."""
+        for ligne in self.lignes:
+            if ligne[0] == produit:             # utilise Produit.__eq__ (même code)
+                ligne[1] += quantite
+                return
+        self.lignes.append([produit, quantite])
+
+    def total(self):
+        """Renvoie le total TTC avant remise, arrondi au centime."""
+        somme = 0
+        for produit, quantite in self.lignes:
+            somme += produit.prix * quantite
+        return round(somme, 2)
+
+    def __len__(self):
+        """len(commande) : nombre total d'articles."""
+        nombre = 0
+        for produit, quantite in self.lignes:
+            nombre += quantite
+        return nombre
+
+    def __contains__(self, produit):
+        """produit in commande : le produit est-il dans une des lignes ?"""
+        for ligne in self.lignes:
+            if ligne[0] == produit:
+                return True
+        return False
+
+    def __iter__(self):
+        """for ligne in commande : parcourt les lignes [produit, quantite]."""
+        return iter(self.lignes)
+
+    def __str__(self):
+        texte = f"=== Ticket n°{self.numero} — {self.client.nom} — {self.heure} ===\n"
+        for produit, quantite in self.lignes:
+            texte += f"  {produit.nom:<25} x{quantite:<3} {produit.prix * quantite:6.2f} €\n"
+        texte += f"  {'Total':<30} {self.total():6.2f} €\n"
+        if self.remise > 0:
+            texte += f"  {'Remise':<30} {-self.remise:6.2f} €\n"
+        if self.remise < 0:
+            texte += f"  {'Frais de service':<30} {-self.remise:6.2f} €\n"
+        if self.avantage > 0:
+            texte += f"  {'Fidélité':<30} {-self.avantage:6.2f} €\n"
+        texte += f"  {'Payé':<30} {self.montant_paye:6.2f} €"
+        return texte
+
+    def __repr__(self):
+        return f"Commande(n°{self.numero}, {self.client.nom!r}, {self.heure!r}, {len(self)} articles)"    

@@ -1,4 +1,4 @@
-from campuscafe import Produit, Client
+from campuscafe import Produit, Client, Commande
 
 cafe = Produit("B01", "Café expresso", "boisson chaude", 1.20, 100)
 plat = Produit("P03", "Plat du jour", "plat", 7.20, 20)
@@ -70,3 +70,43 @@ assert chloe.avantage_fidelite(10.00) == 0.50                    # 40,00 pile : 
 assert visiteur.avantage_fidelite(10.00) == 0.0                  # pas de fidélité sans badge
 
 print("Tests Client : OK ✅")
+
+
+# ---------- Tests Commande ----------
+expresso = Produit("B01", "Café expresso", "boisson chaude", 1.20, 100)
+croissant = Produit("V01", "Croissant", "viennoiserie", 1.20, 30)
+the = Produit("B02", "Thé", "boisson chaude", 1.30, 60)
+client = Client("Alice", "étudiant", 12.00)
+
+c = Commande(client, "07:45")
+c.ajouter_ligne(expresso, 1)
+c.ajouter_ligne(croissant, 3)
+assert len(c) == 4                                 # 1 + 3 articles
+assert c.total() == 4.80                           # 1.20 + 3 x 1.20
+assert expresso in c and croissant in c            # __contains__
+assert the not in c
+assert Produit("B01", "Autre nom", "boisson chaude", 9.99, 0) in c   # égalité par code
+
+# Même produit ajouté deux fois : la quantité se cumule
+c.ajouter_ligne(expresso, 2)
+assert len(c) == 6 and len(c.lignes) == 2
+assert c.total() == 7.20
+
+# __iter__ : for ... in commande
+quantites = []
+for produit, quantite in c:
+    quantites.append(quantite)
+assert quantites == [3, 3]
+
+# Numéro automatique
+c2 = Commande(client, "08:00")
+assert c2.numero == c.numero + 1
+
+# Copie de la liste reçue
+mes_lignes = [(expresso, 1)]
+c3 = Commande(client, "09:00", mes_lignes)
+mes_lignes.append((the, 5))                        # on modifie la liste APRÈS
+assert len(c3) == 1                                # la commande n'a pas bougé
+
+print(c)                                           # pour voir le ticket
+print("Tests Commande : OK ✅")
