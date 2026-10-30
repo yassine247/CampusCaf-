@@ -15,6 +15,7 @@ Python 3.10 ou plus, bibliothèque standard uniquement.
 - Lancer le scénario de la journée : `py campuscafe.py`
 - Lancer les tests : `py tests.py`
 - Régénérer la sortie : `cmd /c "py -X utf8 campuscafe.py > sortie_scenario.txt"`
+- Lancer le menu interactif (bonus) : `py menu.py`
 
 ## Organisation du code
 
@@ -25,6 +26,7 @@ Python 3.10 ou plus, bibliothèque standard uniquement.
 | `sortie_scenario.txt` | la sortie complète du scénario et du rapport |
 | `conception/` | conception papier et calculs à la main (événements 2, 6, 11) |
 | `JOURNAL.md` | journal de bord |
+| `menu.py` | bonus : menu console pour saisir commandes, recharges et réapprovisionnements à la main |
 
 ## Mes choix
 
