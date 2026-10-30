@@ -169,3 +169,27 @@ assert len(cafet.journal) == 4
 
 print(cafet.journal[-1])          # le ticket du visiteur
 print("Tests Cafeteria : OK ✅")
+
+
+# ---------- Tests du rapport ----------
+cafet.ajouter_client(alice)
+cafet.ajouter_client(bruno)
+
+assert cafet.nb_acceptees() == 4
+assert cafet.chiffre_affaires() == 15.64          # 2.16 + 4.94 + 6.84 + 1.70
+assert cafet.total_remises() == 1.26              # 0.24 + 0.26 + 0.76 (les frais visiteur ne comptent pas)
+
+top = cafet.plus_vendus(3)
+assert top[0][0].code == "V01" and top[0][1] == 4   # croissant : 1 + 3
+assert top[1][0].code == "B01" and top[1][1] == 3   # café : 1 + 1 + 1
+assert len(top) == 3
+
+triee = cafet.carte_triee()
+assert triee[0].code == "D02"                       # fruit, 0.80 € : le moins cher
+assert triee[-1].code == "P03"                      # plat du jour, 7.20 € : le plus cher
+assert max(cafet.carte.values()).code == "P03"
+
+assert alice.solde == 3.00
+assert cafet.badges_faibles() == []                 # 3.00 pile : PAS inférieur à 3.00
+
+print("Tests rapport : OK ✅")

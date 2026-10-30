@@ -196,6 +196,7 @@ class Cafeteria:
     REMISE_ETUDIANT = 0.10
     REMISE_ALTERNANT = 0.05
     FRAIS_VISITEUR = 0.50
+    SEUIL_BADGE_FAIBLE = 3.00    # rapport : badges dont le solde est inférieur
 
     def __init__(self):
         self.carte = {}         # {code: Produit}
@@ -281,6 +282,80 @@ class Cafeteria:
             return False
         return self.carte[code].approvisionner(quantite)
 
+    def nb_acceptees(self):
+        """Renvoie le nombre de commandes acceptées."""
+        return len(self.journal)
+
+    def chiffre_affaires(self):
+        """Renvoie le total des montants payés, arrondi au centime."""
+        total = 0
+        for commande in self.journal:
+            total += commande.montant_paye
+        return round(total, 2)
+
+    def total_remises(self):
+        """Renvoie le total des remises (hors frais visiteur) et des avantages fidélité."""
+        total = 0
+        for commande in self.journal:
+            if commande.remise > 0:
+                total += commande.remise
+            total += commande.avantage
+        return round(total, 2)
+
+    def plus_vendus(self, n=3):
+        """Renvoie les n produits les plus vendus, sous forme de couples (produit, quantite)."""
+        quantites = {}                      # {code: quantité vendue}
+        for commande in self.journal:
+            for produit, quantite in commande:
+                if produit.code in quantites:
+                    quantites[produit.code] += quantite
+                else:
+                    quantites[produit.code] = quantite
+        couples = [(self.carte[code], quantite) for code, quantite in quantites.items()]
+        couples_tries = sorted(couples, key=lambda couple: couple[1], reverse=True)
+        return couples_tries[:n]
+
+    def carte_triee(self):
+        """Renvoie la liste des produits triée par prix croissant (utilise Produit.__lt__)."""
+        return sorted(self.carte.values())
+
+    def badges_faibles(self):
+        """Renvoie les clients à badge dont le solde est inférieur au seuil."""
+        return [client for client in self.clients.values()
+                if client.a_un_badge() and client.solde < self.SEUIL_BADGE_FAIBLE]
+
+    def afficher_rapport(self):
+        """Affiche le rapport de clôture (seule méthode du rapport qui utilise print)."""
+        print("=" * 55)
+        print("RAPPORT DE CLÔTURE")
+        print("=" * 55)
+
+        print(f"Commandes acceptées : {self.nb_acceptees()}")
+        print("Refus par motif :")
+        for motif, nombre in self.refus.items():
+            print(f"  {motif:<20} {nombre}")
+
+        print(f"\nChiffre d'affaires            : {self.chiffre_affaires():.2f} €")
+        print(f"Remises et avantages accordés : {self.total_remises():.2f} €")
+
+        print("\nTop 3 des produits les plus vendus :")
+        for rang, couple in enumerate(self.plus_vendus(3), start=1):
+            produit, quantite = couple
+            print(f"  {rang}. {produit.nom:<25} {quantite}")
+
+        print("\nCarte par prix croissant :")
+        for produit in self.carte_triee():
+            alerte = "   <-- ÉPUISÉ" if produit.stock == 0 else ""
+            print(f"  {produit}{alerte}")
+        print(f"Produit le plus cher : {max(self.carte.values()).nom}")
+
+        print(f"\nBadges avec un solde inférieur à {self.SEUIL_BADGE_FAIBLE:.2f} € :")
+        faibles = self.badges_faibles()
+        if not faibles:
+            print("  aucun")
+        for client in faibles:
+            print(f"  {client}")
+    
     def __repr__(self):
         return f"Cafeteria({len(self.carte)} produits, {len(self.clients)} clients, {len(self.journal)} commandes)"    
 
@@ -375,7 +450,8 @@ def jouer_scenario(cafet):
     r = cafet.traiter_commande(farid, "17:30", [("B02", 2)])
     afficher_commande(cafet, 16, "17:30", "Farid", r)
 
-    print("17. 18:30  Clôture : rapport à venir (étape suivante)")
+    print("17. 18:30  Clôture")
+    cafet.afficher_rapport()
 
 
 if __name__ == "__main__":
