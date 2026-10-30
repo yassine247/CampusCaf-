@@ -1,0 +1,100 @@
+ 1. 07:30  Ouverture
+ 2. 07:45  Commande Alice : acceptée (2.16 €)
+=== Ticket n°1 — Alice — 07:45 ===
+  Café expresso             x1     1.20 €
+  Croissant                 x1     1.20 €
+  Total                            2.40 €
+  Remise                          -0.24 €
+  Payé                             2.16 €
+ 3. 08:10  Commande Farid : acceptée (2.40 €)
+=== Ticket n°2 — Farid — 08:10 ===
+  Café expresso             x2     2.40 €
+  Total                            2.40 €
+  Payé                             2.40 €
+ 4. 08:30  Commande Bruno : REFUSÉE (solde insuffisant)
+ 5. 08:35  Recharge Bruno 20.00 € : acceptée (solde 23.50 €)
+ 6. 08:40  Commande Bruno : acceptée (4.94 €)
+=== Ticket n°4 — Bruno — 08:40 ===
+  Chocolat chaud            x1     1.60 €
+  Croissant                 x3     3.60 €
+  Total                            5.20 €
+  Remise                          -0.26 €
+  Payé                             4.94 €
+ 7. 09:15  Commande visiteur : acceptée (3.20 €)
+=== Ticket n°5 — visiteur — 09:15 ===
+  Thé                       x1     1.30 €
+  Cookie                    x1     1.40 €
+  Total                            2.70 €
+  Frais de service                 0.50 €
+  Payé                             3.20 €
+ 8. 11:00  Commande Chloé : REFUSÉE (hors créneau)
+ 9. 12:05  Commande Chloé : acceptée (9.54 €)
+=== Ticket n°7 — Chloé — 12:05 ===
+  Plat du jour              x1     7.20 €
+  Jus d'orange              x1     2.00 €
+  Cookie                    x1     1.40 €
+  Total                           10.60 €
+  Remise                          -1.06 €
+  Payé                             9.54 €
+10. 12:10  Recharge Alice 150.00 € : REFUSÉE (solde 9.84 €)
+11. 12:20  Commande Alice : acceptée (6.84 €)
+=== Ticket n°8 — Alice — 12:20 ===
+  Wrap végétarien           x1     4.60 €
+  Eau 50 cl                 x1     1.00 €
+  Fruit de saison           x1     0.80 €
+  Café expresso             x1     1.20 €
+  Total                            7.60 €
+  Remise                          -0.76 €
+  Payé                             6.84 €
+12. 12:45  Commande visiteur : REFUSÉE (rupture de stock)
+13. 13:00  Commande Bruno : REFUSÉE (produit inconnu)
+14. 15:30  Commande Alice : acceptée (2.34 €)
+=== Ticket n°10 — Alice — 15:30 ===
+  Café expresso             x1     1.20 €
+  Cookie                    x1     1.40 €
+  Total                            2.60 €
+  Remise                          -0.26 €
+  Payé                             2.34 €
+15. 16:00  Réapprovisionnement Sandwich +10 : fait (stock 25)
+16. 17:30  Commande Farid : acceptée (2.60 €)
+=== Ticket n°11 — Farid — 17:30 ===
+  Thé                       x2     2.60 €
+  Total                            2.60 €
+  Payé                             2.60 €
+17. 18:30  Clôture
+=======================================================
+RAPPORT DE CLÔTURE
+=======================================================
+Commandes acceptées : 8
+Refus par motif :
+  produit inconnu      1
+  quantité invalide    0
+  rupture de stock     1
+  hors créneau         1
+  solde insuffisant    1
+
+Chiffre d'affaires            : 34.02 €
+Remises et avantages accordés : 2.58 €
+
+Top 3 des produits les plus vendus :
+  1. Café expresso             5
+  2. Croissant                 4
+  3. Thé                       3
+
+Carte par prix croissant :
+  D02 Fruit de saison           0.80 € (stock : 29)
+  B05 Eau 50 cl                 1.00 € (stock : 39)
+  B01 Café expresso             1.20 € (stock : 95)
+  V01 Croissant                 1.20 € (stock : 26)
+  B02 Thé                       1.30 € (stock : 57)
+  D01 Cookie                    1.40 € (stock : 22)
+  B03 Chocolat chaud            1.60 € (stock : 39)
+  B04 Jus d'orange              2.00 € (stock : 23)
+  P01 Sandwich jambon-beurre    4.00 € (stock : 25)
+  P02 Wrap végétarien           4.60 € (stock : 9)
+  P03 Plat du jour              7.20 € (stock : 19)
+Produit le plus cher : Plat du jour
+
+Badges avec un solde inférieur à 3.00 € :
+  Alice (étudiant) : solde 0.66 €, achats 11.34 €
+  Farid (personnel) : solde -5.00 €, achats 5.00 €
