@@ -371,30 +371,33 @@ class Cafeteria:
             self.refus["produit rappelé"] += 1
             return False
         return self.carte[code].approvisionner(quantite)
+    def commandes_valides(self):
+        """Renvoie la liste des commandes acceptées et non annulées."""
+        return [commande for commande in self.journal if not commande.est_annulee()]
     def nb_acceptees(self):
-        """Renvoie le nombre de commandes acceptées."""
-        return len(self.journal)
+        """Renvoie le nombre de commandes acceptées et non annulées."""
+        return len(self.commandes_valides())
 
     def chiffre_affaires(self):
-        """Renvoie le total des montants payés, arrondi au centime."""
+        """Renvoie le total payé des commandes non annulées, arrondi au centime."""
         total = 0
-        for commande in self.journal:
+        for commande in self.commandes_valides():
             total += commande.montant_paye
         return round(total, 2)
 
     def total_remises(self):
-        """Renvoie le total des remises (hors frais visiteur) et des avantages fidélité."""
+        """Renvoie le total des remises (hors frais visiteur) et des avantages des commandes non annulées."""
         total = 0
-        for commande in self.journal:
+        for commande in self.commandes_valides():
             if commande.remise > 0:
                 total += commande.remise
             total += commande.avantage
         return round(total, 2)
 
     def plus_vendus(self, n=3):
-        """Renvoie les n produits les plus vendus, sous forme de couples (produit, quantite)."""
+        """Renvoie les n produits les plus vendus (commandes non annulées), en couples (produit, quantite)."""
         quantites = {}                      # {code: quantité vendue}
-        for commande in self.journal:
+        for commande in self.commandes_valides():
             for produit, quantite in commande:
                 if produit.code in quantites:
                     quantites[produit.code] += quantite
@@ -404,6 +407,24 @@ class Cafeteria:
         couples_tries = sorted(couples, key=lambda couple: couple[1], reverse=True)
         return couples_tries[:n]
 
+    def nb_annulees(self):
+        """Renvoie le nombre de commandes annulées."""
+        return len(self.journal) - len(self.commandes_valides())
+
+    def nb_annulees_rappel(self):
+        """Renvoie le nombre de commandes annulées à cause d'un rappel."""
+        total = 0
+        for resume in self.rappels:
+            total += len(resume["commandes"])
+        return total
+
+    def total_rembourse(self):
+        """Renvoie le total remboursé (montants payés des commandes annulées)."""
+        total = 0
+        for commande in self.journal:
+            if commande.est_annulee():
+                total += commande.montant_paye
+        return round(total, 2)
     def carte_triee(self):
         """Renvoie la liste des produits triée par prix croissant (utilise Produit.__lt__)."""
         return sorted(self.carte.values())
@@ -426,6 +447,13 @@ class Cafeteria:
 
         print(f"\nChiffre d'affaires            : {self.chiffre_affaires():.2f} €")
         print(f"Remises et avantages accordés : {self.total_remises():.2f} €")
+        print(f"\nCommandes annulées : {self.nb_annulees()} (dont {self.nb_annulees_rappel()} dues à un rappel)")
+        print(f"Total remboursé    : {self.total_rembourse():.2f} €")
+        for resume in self.rappels:
+            print(f"Rappel {resume['produit']} : {len(resume['commandes'])} commande(s) annulée(s), {resume['total']:.2f} € remboursés")
+            for nom, montant in sorted(resume["remboursements"], key=lambda couple: couple[1], reverse=True):
+                print(f"  {nom:<12} {montant:6.2f} €")
+
 
         print("\nTop 3 des produits les plus vendus :")
         for rang, couple in enumerate(self.plus_vendus(3), start=1):
@@ -434,7 +462,12 @@ class Cafeteria:
 
         print("\nCarte par prix croissant :")
         for produit in self.carte_triee():
-            alerte = "   <-- ÉPUISÉ" if produit.stock == 0 else ""
+            if produit.rappele:
+                alerte = "   <-- RAPPELÉ"
+            elif produit.stock == 0:
+                alerte = "   <-- ÉPUISÉ"
+            else:
+                alerte = ""
             print(f"  {produit}{alerte}")
         print(f"Produit le plus cher : {max(self.carte.values()).nom}")
 
@@ -483,6 +516,24 @@ def afficher_commande(cafet, numero, heure, nom, resultat):
         print(cafet.journal[-1])
     else:
         print(f"{numero:>2}. {heure}  Commande {nom} : REFUSÉE ({motif})")
+def afficher_annulation(numero, heure, nom, resultat):
+    """Affiche le résultat d'une annulation."""
+    annulee, motif, montant = resultat
+    if annulee:
+        print(f"{numero:>2}. {heure}  Annulation {nom} : faite ({montant:.2f} € remboursés)")
+    else:
+        print(f"{numero:>2}. {heure}  Annulation {nom} : REFUSÉE ({motif})")
+
+
+def afficher_rappel(numero, heure, resultat):
+    """Affiche le résultat d'un rappel de produit."""
+    rappele, motif, resume = resultat
+    if not rappele:
+        print(f"{numero:>2}. {heure}  Rappel : REFUSÉ ({motif})")
+        return
+    print(f"{numero:>2}. {heure}  Rappel {resume['produit']} : {len(resume['commandes'])} commande(s) annulée(s), {resume['total']:.2f} € remboursés")
+    for nom, montant in resume["remboursements"]:
+        print(f"      remboursé : {nom} {montant:.2f} €")        
 
 
 def jouer_scenario(cafet):
@@ -540,6 +591,93 @@ def jouer_scenario(cafet):
     afficher_commande(cafet, 16, "17:30", "Farid", r)
 
     print("17. 18:30  Clôture")
+    cafet.afficher_rapport()
+
+def jouer_scenario_v2(cafet):
+    """Rejoue la journée v2 : le scénario v1 avec l'annulation et le rappel insérés."""
+    alice = cafet.clients["Alice"]
+    bruno = cafet.clients["Bruno"]
+    chloe = cafet.clients["Chloé"]
+    farid = cafet.clients["Farid"]
+
+    print(" 1. 07:30  Ouverture")
+
+    r = cafet.traiter_commande(alice, "07:45", [("B01", 1), ("V01", 1)])
+    afficher_commande(cafet, 2, "07:45", "Alice", r)
+
+    r = cafet.traiter_commande(farid, "08:10", [("B01", 2)])
+    afficher_commande(cafet, 3, "08:10", "Farid", r)
+
+    r = cafet.traiter_commande(bruno, "08:30", [("B03", 1), ("V01", 3)])
+    afficher_commande(cafet, 4, "08:30", "Bruno", r)
+
+    ok = cafet.recharger(bruno, 20.00)
+    print(f" 5. 08:35  Recharge Bruno 20.00 € : {'acceptée' if ok else 'REFUSÉE'} (solde {bruno.solde:.2f} €)")
+
+    r = cafet.traiter_commande(bruno, "08:40", [("B03", 1), ("V01", 3)])
+    afficher_commande(cafet, 6, "08:40", "Bruno", r)
+
+    r = cafet.traiter_commande(Client("visiteur", "visiteur"), "09:15", [("B02", 1), ("D01", 1)])
+    afficher_commande(cafet, 7, "09:15", "visiteur", r)
+
+    r = cafet.traiter_commande(chloe, "11:00", [("P03", 1)])
+    afficher_commande(cafet, 8, "11:00", "Chloé", r)
+
+    r = cafet.traiter_commande(chloe, "12:05", [("P03", 1), ("B04", 1), ("D01", 1)])
+    afficher_commande(cafet, 9, "12:05", "Chloé", r)
+
+    ok = cafet.recharger(alice, 150.00)
+    print(f"10. 12:10  Recharge Alice 150.00 € : {'acceptée' if ok else 'REFUSÉE'} (solde {alice.solde:.2f} €)")
+
+    # --- Événements v2 ---
+    r = cafet.traiter_commande(bruno, "12:15", [("P02", 2)])
+    afficher_commande(cafet, 11, "12:15", "Bruno", r)
+
+    r = cafet.traiter_commande(chloe, "12:18", [("P02", 1)])
+    afficher_commande(cafet, 12, "12:18", "Chloé", r)
+    numero_chloe = cafet.journal[-1].numero           # retenu pour l'annuler à 12:25
+
+    r = cafet.traiter_commande(alice, "12:20", [("P02", 1), ("B05", 1), ("D02", 1), ("B01", 1)])
+    afficher_commande(cafet, 13, "12:20", "Alice", r)
+
+    r = cafet.annuler_commande(numero_chloe)
+    afficher_annulation(14, "12:25", "Chloé", r)
+
+    r = cafet.annuler_commande(numero_chloe)
+    afficher_annulation(15, "12:26", "Chloé", r)
+
+    r = cafet.annuler_commande(999)
+    afficher_annulation(16, "12:27", "n°999", r)
+
+    r = cafet.rappeler_produit("P02")
+    afficher_rappel(17, "12:30", r)
+
+    r = cafet.traiter_commande(bruno, "12:35", [("P02", 1)])
+    afficher_commande(cafet, 18, "12:35", "Bruno", r)
+
+    ok = cafet.reapprovisionner("P02", 10)
+    print(f"19. 12:36  Réapprovisionnement Wrap +10 : {'fait' if ok else 'REFUSÉ'} (stock {cafet.carte['P02'].stock})")
+
+    r = cafet.rappeler_produit("P02")
+    afficher_rappel(20, "12:40", r)
+    # --- Fin des événements v2 ---
+
+    r = cafet.traiter_commande(Client("visiteur", "visiteur"), "12:45", [("P01", 16)])
+    afficher_commande(cafet, 21, "12:45", "visiteur", r)
+
+    r = cafet.traiter_commande(bruno, "13:00", [("P01", 1), ("SMOOTHIE", 1)])   # absent de la carte
+    afficher_commande(cafet, 22, "13:00", "Bruno", r)
+
+    r = cafet.traiter_commande(alice, "15:30", [("B01", 1), ("D01", 1)])
+    afficher_commande(cafet, 23, "15:30", "Alice", r)
+
+    ok = cafet.reapprovisionner("P01", 10)
+    print(f"24. 16:00  Réapprovisionnement Sandwich +10 : {'fait' if ok else 'REFUSÉ'} (stock {cafet.carte['P01'].stock})")
+
+    r = cafet.traiter_commande(farid, "17:30", [("B02", 2)])
+    afficher_commande(cafet, 25, "17:30", "Farid", r)
+
+    print("26. 18:30  Clôture")
     cafet.afficher_rapport()
 
 

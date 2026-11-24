@@ -295,3 +295,14 @@ assert cafet3.refus["produit rappelé"] == 2                         # commande 
 assert cafet3.refus["déjà rappelé"] == 1
 
 print("Tests rappel : OK ✅")
+
+# ---------- Tests évolution : rapport de crise (phase 3) ----------
+assert cafet3.nb_acceptees() == 1                   # seul le café de Chloé reste valide
+assert cafet3.nb_annulees() == 3
+assert cafet3.nb_annulees_rappel() == 3
+assert cafet3.total_rembourse() == 19.72
+assert cafet3.chiffre_affaires() == 1.08
+assert cafet3.total_remises() == 0.12               # remise étudiante du café de Chloé
+assert cafet3.plus_vendus(3)[0][0].code == "B01" and len(cafet3.plus_vendus(3)) == 1
+
+print("Tests rapport de crise : OK ✅")
