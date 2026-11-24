@@ -70,3 +70,11 @@ Python 3.10 ou plus, bibliothèque standard uniquement.
 9. **Test du rappel en premier** dans `est_disponible` : un produit rappelé a un stock de 0, il doit être refusé pour « produit rappelé » et non pour « rupture de stock ». De même, la carte teste « RAPPELÉ » avant « ÉPUISÉ ».
 10. **Clients touchés par un rappel** : une ligne par commande annulée, triée par montant décroissant.
 11. **Scénario v2** dans un fichier séparé (`scenario_v2.py`), pour que `py campuscafe.py` joue toujours la v1.
+### Bonus — Click & collect
+- `traiter_commande(client, heure, demandes, creneau=None)` : un créneau est désigné par son heure de début (`"12:30"` pour 12:30–12:45).
+- Un créneau commence sur un quart d'heure, au moins 10 minutes après la commande, et se termine au plus tard à 18:30. Sinon : refus « créneau invalide ».
+- Au plus 10 commandes par créneau (`CAPACITE_CRENEAU`) : refus « créneau complet ». Ces vérifications ont lieu avant la création de la commande.
+- Les places occupées sont les commandes non annulées du créneau : une annulation libère donc la place automatiquement.
+- Statuts : « à retirer » à l'acceptation, « retirée » avec `retirer_commande(numero)`, « annulée » après une annulation. Une commande sans créneau garde le statut « acceptée ».
+- Les heures sont converties en minutes (`en_minutes`, `en_heure`) pour pouvoir ajouter 10 ou 15 minutes.
+- Le rapport affiche le taux de remplissage de chaque créneau utilisé.

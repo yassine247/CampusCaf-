@@ -18,3 +18,4 @@
 - Phase 3 : rapport de crise (commandes non annulées seulement), scénario v2, sortie_scenario_v2.txt, README.
 - Vérifié : le programme donne les mêmes résultats que le calcul à la main (8,74 € ; 4,14 € ; 4,14 € remboursés ; rappel 15,58 €).
 - Remarqué : dans le rappel, le stock du Wrap doit rester à 0 → il faut marquer le produit rappelé AVANT les annulations.
+- Bonus click & collect : créneaux de 15 min, capacité 10, borne des 10 minutes, statuts à retirer / retirée, taux de remplissage, tests. Sorties régénérées (2 nouveaux motifs de refus dans le rapport).
