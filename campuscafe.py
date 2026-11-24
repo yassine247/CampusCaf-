@@ -123,6 +123,8 @@ class Commande:
     """Une commande : un client, une heure et des lignes [produit, quantite]."""
 
     compteur = 0        # attribut de CLASSE : sert à numéroter les commandes
+    STATUT_ACCEPTEE = "acceptée"
+    STATUT_ANNULEE = "annulée"
 
     def __init__(self, client, heure, lignes=None):
         Commande.compteur += 1              # on écrit sur la CLASSE
@@ -137,6 +139,7 @@ class Commande:
         self.remise = 0.0
         self.avantage = 0.0
         self.montant_paye = 0.0
+        self.statut = Commande.STATUT_ACCEPTEE
 
     def ajouter_ligne(self, produit, quantite):
         """Ajoute une ligne ; si le produit est déjà présent, cumule la quantité."""
@@ -152,6 +155,10 @@ class Commande:
         for produit, quantite in self.lignes:
             somme += produit.prix * quantite
         return round(somme, 2)
+
+    def est_annulee(self):
+        """Renvoie True si la commande a été annulée."""
+        return self.statut == Commande.STATUT_ANNULEE
 
     def __len__(self):
         """len(commande) : nombre total d'articles."""
@@ -183,11 +190,12 @@ class Commande:
         if self.avantage > 0:
             texte += f"  {'Fidélité':<30} {-self.avantage:6.2f} €\n"
         texte += f"  {'Payé':<30} {self.montant_paye:6.2f} €"
+        if self.est_annulee():
+            texte += f"\n  *** ANNULÉE — remboursé {self.montant_paye:.2f} € ***"
         return texte
 
     def __repr__(self):
-        return f"Commande(n°{self.numero}, {self.client.nom!r}, {self.heure!r}, {len(self)} articles)"    
-
+        return f"Commande(n°{self.numero}, {self.client.nom!r}, {self.heure!r}, {len(self)} articles, {self.statut})"
 
 class Cafeteria:
     """La cafétéria : la carte, les clients, le journal et les refus."""
