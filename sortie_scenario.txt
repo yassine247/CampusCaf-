@@ -72,9 +72,16 @@ Refus par motif :
   rupture de stock     1
   hors créneau         1
   solde insuffisant    1
+  produit rappelé      0
+  déjà rappelé         0
+  créneau invalide     0
+  créneau complet      0
 
 Chiffre d'affaires            : 34.02 €
 Remises et avantages accordés : 2.58 €
+
+Commandes annulées : 0 (dont 0 dues à un rappel)
+Total remboursé    : 0.00 €
 
 Top 3 des produits les plus vendus :
   1. Café expresso             5

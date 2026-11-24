@@ -306,3 +306,44 @@ assert cafet3.total_remises() == 0.12               # remise étudiante du café
 assert cafet3.plus_vendus(3)[0][0].code == "B01" and len(cafet3.plus_vendus(3)) == 1
 
 print("Tests rapport de crise : OK ✅")
+
+# ---------- Tests bonus : click & collect ----------
+cafet4 = creer_cafeteria()
+
+# 10 visiteurs remplissent le créneau 12:30
+for i in range(10):
+    assert cafet4.traiter_commande(Client("visiteur", "visiteur"), "12:00", [("B01", 1)], "12:30")[0] is True
+assert cafet4.remplissage_creneaux() == {"12:30": 10}
+
+# 1. Créneau plein
+assert cafet4.traiter_commande(Client("visiteur", "visiteur"), "12:00", [("B01", 1)], "12:30") == (False, "créneau complet", 0.0)
+
+# 2. Une annulation libère une place
+assert cafet4.annuler_commande(cafet4.journal[0].numero)[0] is True
+assert cafet4.remplissage_creneaux() == {"12:30": 9}
+assert cafet4.traiter_commande(Client("visiteur", "visiteur"), "12:05", [("B01", 1)], "12:30")[0] is True
+
+# 3. Borne des 10 minutes
+assert cafet4.traiter_commande(Client("visiteur", "visiteur"), "12:50", [("B01", 1)], "13:00")[0] is True
+assert cafet4.traiter_commande(Client("visiteur", "visiteur"), "12:51", [("B01", 1)], "13:00") == (False, "créneau invalide", 0.0)
+
+# 4. Heures d'ouverture et quart d'heure
+assert cafet4.traiter_commande(Client("visiteur", "visiteur"), "17:00", [("B01", 1)], "18:15")[0] is True
+assert cafet4.traiter_commande(Client("visiteur", "visiteur"), "17:00", [("B01", 1)], "18:30") == (False, "créneau invalide", 0.0)
+assert cafet4.traiter_commande(Client("visiteur", "visiteur"), "12:00", [("B01", 1)], "12:40") == (False, "créneau invalide", 0.0)
+
+# 5. Statuts à retirer -> retirée
+commande = cafet4.journal[-1]                       # la commande du créneau 18:15
+assert commande.statut == "à retirer"
+assert cafet4.retirer_commande(commande.numero) == (True, "")
+assert commande.statut == "retirée"
+assert cafet4.retirer_commande(commande.numero) == (False, "rien à retirer")
+assert "Retrait : 18:15–18:30" in str(commande)
+
+# 6. Sans créneau : rien ne change
+assert cafet4.traiter_commande(Client("visiteur", "visiteur"), "09:00", [("B01", 1)])[0] is True
+assert cafet4.journal[-1].statut == "acceptée" and cafet4.journal[-1].creneau is None
+
+assert cafet4.refus["créneau complet"] == 1 and cafet4.refus["créneau invalide"] == 3
+
+print("Tests click & collect : OK ✅")

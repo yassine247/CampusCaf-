@@ -95,6 +95,8 @@ Refus par motif :
   solde insuffisant    1
   produit rappelé      2
   déjà rappelé         1
+  créneau invalide     0
+  créneau complet      0
 
 Chiffre d'affaires            : 27.18 €
 Remises et avantages accordés : 1.82 €

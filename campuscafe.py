@@ -1,3 +1,11 @@
+def en_minutes(heure):
+    """Convertit "HH:MM" en nombre de minutes depuis minuit ("12:30" -> 750)."""
+    return int(heure[:2]) * 60 + int(heure[3:])
+
+
+def en_heure(minutes):
+    """Convertit un nombre de minutes depuis minuit en "HH:MM" (765 -> "12:45")."""
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
 class Produit:
     """Un produit de la carte de la cafétéria."""
 
@@ -143,6 +151,9 @@ class Commande:
     compteur = 0        # attribut de CLASSE : sert à numéroter les commandes
     STATUT_ACCEPTEE = "acceptée"
     STATUT_ANNULEE = "annulée"
+    STATUT_A_RETIRER = "à retirer"
+    STATUT_RETIREE = "retirée"
+    DUREE_CRENEAU = 15          # minutes
 
     def __init__(self, client, heure, lignes=None):
         Commande.compteur += 1              # on écrit sur la CLASSE
@@ -158,6 +169,7 @@ class Commande:
         self.avantage = 0.0
         self.montant_paye = 0.0
         self.statut = Commande.STATUT_ACCEPTEE
+        self.creneau = None     # click & collect : heure de début du créneau, ou None
 
     def ajouter_ligne(self, produit, quantite):
         """Ajoute une ligne ; si le produit est déjà présent, cumule la quantité."""
@@ -208,6 +220,10 @@ class Commande:
         if self.avantage > 0:
             texte += f"  {'Fidélité':<30} {-self.avantage:6.2f} €\n"
         texte += f"  {'Payé':<30} {self.montant_paye:6.2f} €"
+        if self.creneau is not None:
+            fin = en_heure(en_minutes(self.creneau) + Commande.DUREE_CRENEAU)
+            texte += f"\n  Retrait : {self.creneau}–{fin} ({self.statut})"
+        
         if self.est_annulee():
             texte += f"\n  *** ANNULÉE — remboursé {self.montant_paye:.2f} € ***"
         return texte
@@ -223,6 +239,10 @@ class Cafeteria:
     REMISE_ALTERNANT = 0.05
     FRAIS_VISITEUR = 0.50
     SEUIL_BADGE_FAIBLE = 3.00    # rapport : badges dont le solde est inférieur
+    CAPACITE_CRENEAU = 10       # click & collect
+    DELAI_MIN_CRENEAU = 10      # minutes entre la commande et le début du créneau
+    OUVERTURE = "07:30"
+    FERMETURE = "18:30"
 
     def __init__(self):
         self.carte = {}         # {code: Produit}
@@ -236,6 +256,10 @@ class Cafeteria:
             "solde insuffisant": 0,
             "produit rappelé": 0,
             "déjà rappelé": 0,
+            "déjà rappelé": 0,
+            "créneau invalide": 0,
+            "créneau complet": 0,
+            
         }
         self.rappels = []       # un résumé par rappel, pour le rapport de crise
 
@@ -259,8 +283,42 @@ class Cafeteria:
         """Compte un refus et renvoie le triplet (acceptée, motif, montant)."""
         self.refus[motif] += 1
         return (False, motif, 0.0)
+    def creneau_valide(self, heure, creneau):
+        """Renvoie True si le créneau commence sur un quart d'heure, au moins 10 min
+        après la commande, et se termine avant la fermeture."""
+        debut = en_minutes(creneau)
+        if debut % Commande.DUREE_CRENEAU != 0:
+            return False
+        if debut < en_minutes(heure) + self.DELAI_MIN_CRENEAU:
+            return False
+        if debut < en_minutes(self.OUVERTURE):
+            return False
+        if debut + Commande.DUREE_CRENEAU > en_minutes(self.FERMETURE):
+            return False
+        return True
 
-    def traiter_commande(self, client, heure, demandes):
+    def remplissage_creneaux(self):
+        """Renvoie {créneau: places occupées} pour chaque créneau utilisé."""
+        remplissage = {}
+        for commande in self.journal:
+            if commande.creneau is not None:
+                if commande.creneau not in remplissage:
+                    remplissage[commande.creneau] = 0
+                if not commande.est_annulee():
+                    remplissage[commande.creneau] += 1
+        return remplissage
+
+    def retirer_commande(self, numero):
+        """Marque une commande click & collect comme retirée. Renvoie (retirée, motif)."""
+        commande = self.trouver_commande(numero)
+        if commande is None:
+            return (False, "commande inconnue")
+        if commande.statut != Commande.STATUT_A_RETIRER:
+            return (False, "rien à retirer")
+        commande.statut = Commande.STATUT_RETIREE
+        return (True, "")
+
+    def traiter_commande(self, client, heure, demandes, creneau=None):
         """Traite une commande en tout ou rien. Renvoie (acceptée, motif, montant)."""
         # 1. Vérifier les codes et les quantités
         for code, quantite in demandes:
@@ -268,6 +326,12 @@ class Cafeteria:
                 return self.refuser("produit inconnu")
             if quantite <= 0:
                 return self.refuser("quantité invalide")
+                # 1. (suite) Vérifier le créneau de retrait, s'il y en a un
+        if creneau is not None:
+            if not self.creneau_valide(heure, creneau):
+                return self.refuser("créneau invalide")
+            if self.remplissage_creneaux().get(creneau, 0) >= self.CAPACITE_CRENEAU:
+                return self.refuser("créneau complet")    
 
         commande = Commande(client, heure)
         for code, quantite in demandes:
@@ -298,6 +362,9 @@ class Cafeteria:
         commande.remise = remise
         commande.avantage = avantage
         commande.montant_paye = montant
+        if creneau is not None:
+            commande.creneau = creneau
+            commande.statut = Commande.STATUT_A_RETIRER
         self.journal.append(commande)
         return (True, "", montant)
     def trouver_commande(self, numero):
@@ -477,6 +544,12 @@ class Cafeteria:
             print("  aucun")
         for client in faibles:
             print(f"  {client}")
+        remplissage = self.remplissage_creneaux()
+        if remplissage:
+            print("\nClick & collect — remplissage des créneaux :")
+            for creneau, places in sorted(remplissage.items()):
+                taux = places / self.CAPACITE_CRENEAU * 100
+                print(f"  {creneau}  {places:>2}/{self.CAPACITE_CRENEAU}  ({taux:.0f} %)")
     
     def __repr__(self):
         return f"Cafeteria({len(self.carte)} produits, {len(self.clients)} clients, {len(self.journal)} commandes)"    
