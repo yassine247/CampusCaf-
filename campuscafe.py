@@ -11,9 +11,11 @@ class Produit:
         self.categorie = categorie
         self.prix = prix
         self.stock = stock
-
+        self.rappele = False
     def est_disponible(self, quantite, heure):
         """Renvoie (True, "") si le produit peut être servi, sinon (False, motif)."""
+        if self.rappele:
+            return (False, "produit rappelé")
         if quantite > self.stock:
             return (False, "rupture de stock")
         if self.categorie == "plat":
@@ -29,12 +31,23 @@ class Produit:
         return True
 
     def approvisionner(self, quantite):
-        """Ajoute la quantité au stock. Renvoie False si la quantité n'est pas positive."""
+        """Ajoute la quantité au stock. Renvoie False si la quantité n'est pas positive ou si le produit est rappelé."""
+        if self.rappele:
+            return False
         if quantite <= 0:
             return False
         self.stock += quantite
         return True
+    def remettre_en_stock(self, quantite):
+        """Rend au stock la quantité d'une commande annulée (sauf si le produit est rappelé)."""
+        if self.rappele:
+            return
+        self.stock += quantite
 
+    def rappeler(self):
+        """Retire le produit de la vente : il est rappelé et son stock est détruit."""
+        self.rappele = True
+        self.stock = 0
     def __str__(self):
         return f"{self.code} {self.nom:<25} {self.prix:.2f} € (stock : {self.stock})"
 
@@ -96,8 +109,13 @@ class Client:
             return False
         if self.a_un_badge():
             self.solde = round(self.solde - montant, 2)
+    
         return True
-
+    
+    def rembourser(self, montant):
+        """Recrédite le badge (sans plafond). Un visiteur est remboursé comptant."""
+        if self.a_un_badge():
+            self.solde = round(self.solde + montant, 2)
     def avantage_fidelite(self, montant):
         """Renvoie la réduction fidélité (B3) sur ce montant, 0.0 si aucune."""
         if self.a_un_badge() and self.total_achats >= self.SEUIL_FIDELITE:
@@ -216,7 +234,10 @@ class Cafeteria:
             "rupture de stock": 0,
             "hors créneau": 0,
             "solde insuffisant": 0,
+            "produit rappelé": 0,
+            "déjà rappelé": 0,
         }
+        self.rappels = []       # un résumé par rappel, pour le rapport de crise
 
     def ajouter_produit(self, produit):
         self.carte[produit.code] = produit
@@ -279,17 +300,77 @@ class Cafeteria:
         commande.montant_paye = montant
         self.journal.append(commande)
         return (True, "", montant)
+    def trouver_commande(self, numero):
+        """Renvoie la commande du journal qui porte ce numéro, ou None."""
+        for commande in self.journal:
+            if commande.numero == numero:
+                return commande
+        return None
+
+    def recalculer_fidelite(self, client):
+        """Rejeu B3 : total_achats = somme des montants payés des commandes non annulées."""
+        if not client.a_un_badge():
+            return
+        total = 0
+        for commande in self.journal:
+            if commande.client == client and not commande.est_annulee():
+                total += commande.montant_paye
+        client.total_achats = round(total, 2)
+
+    def annuler_commande(self, numero):
+        """Annule une commande en tout ou rien. Renvoie (annulée, motif, montant remboursé)."""
+        # 1. Vérifier (on ne modifie rien)
+        commande = self.trouver_commande(numero)
+        if commande is None:
+            return (False, "commande inconnue", 0.0)
+        if commande.est_annulee():
+            return (False, "commande déjà annulée", 0.0)
+
+        # 2. Défaire : à partir d'ici, on MODIFIE
+        for produit, quantite in commande:
+            produit.remettre_en_stock(quantite)
+        commande.client.rembourser(commande.montant_paye)
+        commande.statut = Commande.STATUT_ANNULEE
+        self.recalculer_fidelite(commande.client)
+        return (True, "", commande.montant_paye)
+
+    def rappeler_produit(self, code):
+        """Rappelle un produit et annule les commandes qui le contiennent.
+        Renvoie (rappelé, motif, résumé) ; le résumé vaut None en cas de refus."""
+        # 1. Vérifier (on ne modifie rien)
+        if code not in self.carte:
+            return (False, "produit inconnu", None)
+        produit = self.carte[code]
+        if produit.rappele:
+            self.refus["déjà rappelé"] += 1
+            return (False, "déjà rappelé", None)
+
+        # 2. Marquer le produit rappelé AVANT les annulations
+        produit.rappeler()
+
+        # 3. Annuler, dans l'ordre du journal, les commandes concernées
+        resume = {"produit": produit.nom, "commandes": [], "remboursements": [], "total": 0.0}
+        for commande in self.journal:
+            if produit in commande and not commande.est_annulee():
+                annulee, motif, montant = self.annuler_commande(commande.numero)
+                resume["commandes"].append(commande.numero)
+                resume["remboursements"].append((commande.client.nom, montant))
+                resume["total"] = round(resume["total"] + montant, 2)
+        self.rappels.append(resume)
+        return (True, "", resume)
 
     def recharger(self, client, montant):
         """Recharge le badge d'un client. Renvoie True si la recharge est acceptée."""
         return client.recharger(montant)
 
     def reapprovisionner(self, code, quantite):
-        """Ajoute du stock à un produit. Renvoie False si le code est inconnu."""
+        """Ajoute du stock à un produit. Renvoie False si le code est inconnu, le produit rappelé ou la quantité invalide."""
         if code not in self.carte:
             return False
+        if self.carte[code].rappele:
+            self.refus["produit rappelé"] += 1
+            return False
         return self.carte[code].approvisionner(quantite)
-
     def nb_acceptees(self):
         """Renvoie le nombre de commandes acceptées."""
         return len(self.journal)

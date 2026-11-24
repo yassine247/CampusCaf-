@@ -1,4 +1,4 @@
-from campuscafe import Produit, Client, Commande, Cafeteria
+from campuscafe import Produit, Client, Commande, Cafeteria, creer_cafeteria
 
 cafe = Produit("B01", "Café expresso", "boisson chaude", 1.20, 100)
 plat = Produit("P03", "Plat du jour", "plat", 7.20, 20)
@@ -193,3 +193,105 @@ assert alice.solde == 3.00
 assert cafet.badges_faibles() == []                 # 3.00 pile : PAS inférieur à 3.00
 
 print("Tests rapport : OK ✅")
+# ---------- Tests évolution : annulation (phase 1) ----------
+cafet2 = creer_cafeteria()
+alice2 = cafet2.clients["Alice"]
+
+# 1. Annuler la dernière commande : retour exact à l'état d'avant (instantané)
+avant = (alice2.solde, alice2.total_achats, cafet2.carte["B01"].stock, cafet2.carte["V01"].stock)
+cafet2.traiter_commande(alice2, "07:45", [("B01", 1), ("V01", 1)])
+numero = cafet2.journal[-1].numero
+assert cafet2.annuler_commande(numero) == (True, "", 2.16)
+apres = (alice2.solde, alice2.total_achats, cafet2.carte["B01"].stock, cafet2.carte["V01"].stock)
+assert apres == avant
+
+# 2. Commande inconnue
+assert cafet2.annuler_commande(999) == (False, "commande inconnue", 0.0)
+
+# 3. Commande déjà annulée
+assert cafet2.annuler_commande(numero) == (False, "commande déjà annulée", 0.0)
+
+# 4. Annulation refusée : rien n'est modifié
+assert alice2.solde == 12.00 and cafet2.carte["B01"].stock == 100
+assert len(cafet2.journal) == 1                    # la commande annulée reste dans le journal
+
+# 5. Remboursement d'un visiteur (comptant : pas de solde)
+visiteur2 = Client("visiteur", "visiteur")
+cafet2.traiter_commande(visiteur2, "09:15", [("B02", 1)])
+assert cafet2.annuler_commande(cafet2.journal[-1].numero) == (True, "", 1.80)
+assert visiteur2.solde == 0.0
+
+# 6. Remboursement qui fait dépasser 150 € : autorisé
+riche = Client("Riche", "personnel", 145.00)
+cafet2.traiter_commande(riche, "08:00", [("B01", 1)])          # solde 143.80
+assert riche.recharger(6.20) is True and riche.solde == 150.00
+assert cafet2.annuler_commande(cafet2.journal[-1].numero)[0] is True
+assert riche.solde == 151.20
+
+# 7. Annulation d'une commande qui avait utilisé un avantage de fidélité
+dina = Client("Dina", "étudiant", 100.00)
+cafet2.traiter_commande(dina, "12:00", [("P03", 7)])           # 50.40 - 5.04 = 45.36
+num_gros = cafet2.journal[-1].numero
+cafet2.traiter_commande(dina, "12:10", [("B01", 1)])           # 1.08 - 0.05 (fidélité) = 1.03
+num_cafe = cafet2.journal[-1].numero
+assert cafet2.journal[-1].avantage == 0.05
+assert dina.total_achats == 46.39
+assert cafet2.annuler_commande(num_cafe) == (True, "", 1.03)
+assert dina.total_achats == 45.36 and dina.solde == 54.64
+
+# 7 bis. Un avantage déjà obtenu reste acquis
+cafet2.traiter_commande(dina, "12:20", [("B01", 1)])           # encore 1.03 (fidélité)
+cafet2.annuler_commande(num_gros)
+assert dina.total_achats == 1.03                    # il ne reste que ce café
+assert cafet2.journal[-1].montant_paye == 1.03      # son montant n'est pas recalculé
+
+# 8. Ticket d'une commande annulée
+assert "ANNULÉE" in str(cafet2.trouver_commande(num_cafe))
+
+print("Tests annulation : OK ✅")
+# ---------- Tests évolution : rappel (phase 2) ----------
+cafet3 = creer_cafeteria()
+alice3 = cafet3.clients["Alice"]
+bruno3 = cafet3.clients["Bruno"]
+chloe3 = cafet3.clients["Chloé"]
+bruno3.recharger(20.00)                                              # 23.50
+
+cafet3.traiter_commande(bruno3, "12:15", [("P02", 2)])               # 8.74
+cafet3.traiter_commande(chloe3, "12:18", [("P02", 1)])               # 4.14
+cafet3.traiter_commande(alice3, "12:20", [("P02", 1), ("B05", 1), ("D02", 1), ("B01", 1)])   # 6.84
+cafet3.traiter_commande(chloe3, "12:22", [("B01", 1)])               # 1.08, sans Wrap
+
+# 1. Rappel d'un produit présent dans plusieurs commandes
+rappele, motif, resume = cafet3.rappeler_produit("P02")
+assert rappele is True
+assert len(resume["commandes"]) == 3
+assert resume["commandes"] == sorted(resume["commandes"])          # ordre chronologique
+assert resume["total"] == 19.72                                     # 8.74 + 4.14 + 6.84
+assert cafet3.carte["P02"].stock == 0                               # le Wrap ne revient pas
+assert cafet3.carte["B05"].stock == 40                              # l'eau d'Alice revient
+assert bruno3.solde == 23.50 and alice3.solde == 12.00
+assert chloe3.solde == 23.92 and chloe3.total_achats == 1.08        # son café reste payé
+
+# 2. Rappel d'un produit sans aucune commande
+assert cafet3.rappeler_produit("D01") == (True, "", {"produit": "Cookie", "commandes": [],
+                                                     "remboursements": [], "total": 0.0})
+
+# 3. Commande contenant un produit rappelé : refusée, rien modifié
+avant = (alice3.solde, cafet3.carte["B01"].stock, len(cafet3.journal))
+assert cafet3.traiter_commande(alice3, "12:35", [("B01", 1), ("P02", 1)]) == (False, "produit rappelé", 0.0)
+assert (alice3.solde, cafet3.carte["B01"].stock, len(cafet3.journal)) == avant
+
+# 4. Réapprovisionnement d'un produit rappelé : refusé
+assert cafet3.reapprovisionner("P02", 10) is False and cafet3.carte["P02"].stock == 0
+
+# 5. Second rappel du même produit
+assert cafet3.rappeler_produit("P02") == (False, "déjà rappelé", None)
+
+# 6. Code inconnu : refusé, rien modifié
+assert cafet3.rappeler_produit("XYZ") == (False, "produit inconnu", None)
+
+# Comptage des nouveaux refus
+assert cafet3.refus["produit rappelé"] == 2                         # commande + réappro
+assert cafet3.refus["déjà rappelé"] == 1
+
+print("Tests rappel : OK ✅")
